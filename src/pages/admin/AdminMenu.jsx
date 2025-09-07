@@ -33,6 +33,7 @@ const AdminMenu = () => {
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedTable, setSelectedTable] = useState(null);
   const [uploadingImages, setUploadingImages] = useState(false);
+  const [tablesLoading, setTablesLoading] = useState(true);
   const [newTable, setNewTable] = useState({
     table_number: '',
     capacity: 2,
@@ -74,18 +75,49 @@ const AdminMenu = () => {
   };
 
   const loadTables = async () => {
+    setTablesLoading(true);
     try {
       const response = await apiCall('/admin/tables');
       if (response.success) {
         setTables(response.data);
+        // Store tables data in localStorage for persistence
+        localStorage.setItem('adminTables', JSON.stringify(response.data));
       }
     } catch (error) {
       console.error('Failed to load tables:', error);
-      setTables([]);
+      // Try to load from localStorage if API fails
+      const storedTables = localStorage.getItem('adminTables');
+      if (storedTables) {
+        try {
+          setTables(JSON.parse(storedTables));
+          console.log('📦 Tables loaded from localStorage');
+        } catch (parseError) {
+          console.error('Error parsing stored tables:', parseError);
+          setTables([]);
+        }
+      } else {
+        setTables([]);
+      }
     } finally {
+      setTablesLoading(false);
       setIsLoading(false);
     }
   };
+
+  // Load tables from localStorage on component mount
+  useEffect(() => {
+    const storedTables = localStorage.getItem('adminTables');
+    if (storedTables) {
+      try {
+        const parsedTables = JSON.parse(storedTables);
+        setTables(parsedTables);
+        setTablesLoading(false);
+        console.log('📦 Tables restored from localStorage');
+      } catch (error) {
+        console.error('Error parsing stored tables:', error);
+      }
+    }
+  }, []);
 
   const handleAddTable = async (e) => {
     e.preventDefault();
@@ -291,7 +323,7 @@ const AdminMenu = () => {
     'Mediterranean', 'American', 'Korean', 'Vietnamese', 'Greek', 'Spanish'
   ];
 
-  if (isLoading) {
+  if (isLoading && tablesLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
@@ -334,9 +366,18 @@ const AdminMenu = () => {
         
         {tables.length === 0 ? (
           <div className="text-center py-8">
-            <Table className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No tables created yet</h3>
-            <p className="text-gray-500">Create your first table to get started.</p>
+            {tablesLoading ? (
+              <>
+                <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-gray-500">Loading tables...</p>
+              </>
+            ) : (
+              <>
+                <Table className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No tables created yet</h3>
+                <p className="text-gray-500">Create your first table to get started.</p>
+              </>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
